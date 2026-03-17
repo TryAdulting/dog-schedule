@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Dog Schedule</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --cream: #FAF7F2;
+    --warm-white: #FFFDF9;
+    --ink: #1C1917;
+    --ink-light: #57534E;
+    --ink-faint: #A8A29E;
+    --border: rgba(28,25,23,0.1);
+    --border-strong: rgba(28,25,23,0.18);
+    --shadow: 0 2px 16px rgba(28,25,23,0.07);
+  }
+  html, body { height: 100%; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
+
+  header {
+    padding: 1.5rem 2.5rem;
+    border-bottom: 0.5px solid var(--border);
+    background: var(--warm-white);
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; justify-content: space-between;
+  }
+  .header-left h1 { font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 300; letter-spacing: -0.02em; }
+  .header-left p { font-size: 15px; color: var(--ink-light); margin-top: 3px; font-weight: 300; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* CALENDAR PICKER */
+  .date-picker-wrap { position: relative; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-light); }
+  .date-trigger {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400; color: var(--ink);
+    background: var(--warm-white); border: 0.5px solid var(--border-strong); border-radius: 99px;
+    padding: 6px 16px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    white-space: nowrap; user-select: none;
+  }
+  .date-trigger:hover { border-color: var(--ink-light); }
+  .date-trigger.open { border-color: var(--ink); }
+
+  .cal-dropdown {
+    display: none; position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--warm-white); border: 0.5px solid var(--border-strong);
+    border-radius: 14px; padding: 16px; z-index: 200;
+    box-shadow: 0 8px 32px rgba(28,25,23,0.14); min-width: 268px;
+  }
+  .cal-dropdown.open { display: block; }
+
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-nav-btn {
+    background: none; border: 0.5px solid var(--border-strong); border-radius: 50%;
+    width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--ink-light); font-size: 14px; transition: background 0.12s;
+  }
+  .cal-nav-btn:hover { background: var(--cream); }
+  .cal-month-label { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 400; color: var(--ink); }
+
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-dow {
+    font-size: 10px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--ink-faint); text-align: center; padding: 4px 0 6px;
+  }
+  .cal-cell {
+    text-align: center; font-size: 12px; color: var(--ink-light);
+    padding: 5px 2px; border-radius: 6px; cursor: pointer;
+    transition: background 0.1s, color 0.1s; line-height: 1.4;
+  }
+  .cal-cell:hover:not(.cal-empty) { background: var(--cream); color: var(--ink); }
+  .cal-cell.cal-empty { color: var(--ink-faint); cursor: default; opacity: 0.35; }
+  .cal-cell.cal-selected { background: var(--ink); color: var(--cream); font-weight: 500; }
+  .cal-cell.cal-in-week { background: rgba(28,25,23,0.06); border-radius: 0; }
+  .cal-cell.cal-week-start { border-radius: 6px 0 0 6px; }
+  .cal-cell.cal-week-end { border-radius: 0 6px 6px 0; }
+  .cal-cell.cal-today { font-weight: 500; color: var(--ink); }
+  .cal-cell.cal-today:not(.cal-selected)::after { content: ''; display: block; width: 3px; height: 3px; border-radius: 50%; background: var(--ink-faint); margin: 1px auto 0; }
+  .cal-hint { font-size: 11px; color: var(--ink-faint); text-align: center; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+
+  .btn-outline {
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 400;
+    color: var(--ink-light); background: none;
+    border: 0.5px solid var(--border-strong); border-radius: 99px;
+    padding: 6px 16px; cursor: pointer; transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .btn-outline:hover { background: var(--ink); color: var(--cream); }
+
+  .layout { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 145px); }
+
+  .sidebar {
+    background: var(--warm-white); border-right: 0.5px solid var(--border);
+    padding: 1.5rem; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
+  }
+  .sidebar-label {
+    font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ink-faint); padding-bottom: 10px; border-bottom: 0.5px solid var(--border); flex-shrink: 0;
+  }
+  .template-block {
+    padding: 12px 14px; border-radius: 10px; border: 0.5px solid var(--border-strong);
+    cursor: grab; user-select: none; background: var(--warm-white);
+    transition: box-shadow 0.15s, transform 0.15s, opacity 0.15s;
+  }
+  .template-block:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .template-block:active { cursor: grabbing; opacity: 0.55; transform: scale(0.98); }
+  .block-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .block-pill { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 99px; flex-shrink: 0; }
+  .block-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 400; color: var(--ink); }
+  .block-goal { font-size: 13px; color: var(--ink-light); font-weight: 300; margin-bottom: 5px; font-style: italic; }
+  .block-bullets { font-size: 13px; color: var(--ink-light); line-height: 1.6; }
+  .block-tip { font-size: 12px; color: var(--ink-faint); margin-top: 6px; border-top: 0.5px solid var(--border); padding-top: 6px; font-style: italic; line-height: 1.5; }
+
+  .main { padding: 2rem 2.5rem; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .week-label { font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
+  .day-row { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: center; }
+  .day-name { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 300; color: var(--ink); text-align: right; padding-right: 4px; line-height: 1.3; }
+  .day-date { font-size: 11px; color: var(--ink-faint); font-weight: 300; }
+
+  .slot {
+    min-height: 110px; border-radius: 10px; border: 1px dashed var(--border-strong);
+    background: rgba(28,25,23,0.02); position: relative; overflow: hidden;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .slot.drag-over { border-color: #7C6F5E; background: rgba(28,25,23,0.05); border-style: solid; }
+  .slot.filled { border-style: solid; border-color: var(--border-strong); background: var(--warm-white); }
+  .empty-hint {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 13px; color: var(--ink-faint); white-space: nowrap; pointer-events: none; font-weight: 300;
+  }
+  .placed {
+    padding: 10px 14px; width: 100%; height: 100%;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+    border-radius: 0 10px 10px 0;
+  }
+  .placed-left { display: flex; flex-direction: column; gap: 3px; }
+  .placed-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 400; color: var(--ink); }
+  .placed-goal { font-size: 13px; color: var(--ink-light); font-weight: 300; font-style: italic; }
+  .placed-pill { font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 99px; align-self: flex-start; margin-top: 2px; }
+  .placed-bullets { font-size: 12px; color: var(--ink-light); line-height: 1.6; margin-top: 2px; }
+  .placed-tip { font-size: 11px; color: var(--ink-faint); font-style: italic; border-top: 0.5px solid var(--border); padding-top: 5px; margin-top: 4px; line-height: 1.5; }
+  .remove-btn { font-size: 20px; line-height: 1; color: var(--ink-faint); background: none; border: none; cursor: pointer; padding: 0; flex-shrink: 0; transition: color 0.15s; margin-top: -2px; }
+  .remove-btn:hover { color: #C0392B; }
+
+  /* GENERATE BUTTON BAR */
+  .gen-bar {
+    padding: 1.25rem 2.5rem;
+    background: var(--warm-white);
+    border-top: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  }
+  .btn-generate {
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    color: var(--warm-white); background: var(--ink);
+    border: none; border-radius: 99px; padding: 10px 28px;
+    cursor: pointer; transition: opacity 0.15s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-generate:hover { opacity: 0.78; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(28,25,23,0.5);
+    z-index: 100; align-items: center; justify-content: center; padding: 1.5rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--warm-white); border-radius: 16px;
+    width: 100%; max-width: 860px; max-height: 92vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 12px 60px rgba(28,25,23,0.22);
+  }
+  .modal-header {
+    padding: 1.25rem 1.75rem; border-bottom: 0.5px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .modal-header h2 { font-family: 'Fraunces', serif; font-size: 1.4rem; font-weight: 300; }
+  .modal-close { font-size: 24px; color: var(--ink-faint); background: none; border: none; cursor: pointer; line-height: 1; padding: 0 2px; }
+  .modal-close:hover { color: var(--ink); }
+  .modal-body { padding: 1.75rem; overflow-y: auto; flex: 1; }
+  .modal-footer {
+    padding: 1rem 1.75rem; border-top: 0.5px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;
+  }
+
+  /* PRINTABLE CARD — all colours hardcoded, no CSS vars, for html2canvas */
+  #schedule-card {
+    background: #FAF7F2;
+    border-radius: 14px;
+    padding: 32px 36px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .card-header { margin-bottom: 24px; border-bottom: 1px solid rgba(28,25,23,0.12); padding-bottom: 18px; }
+  .card-title { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 300; letter-spacing: -0.02em; color: #1C1917; }
+  .card-subtitle { font-size: 14px; color: #A8A29E; margin-top: 5px; }
+  .card-grid { display: flex; flex-direction: column; gap: 10px; }
+  .card-day { display: grid; grid-template-columns: 105px 1fr; gap: 14px; align-items: stretch; }
+  .card-day-label { text-align: right; padding-right: 6px; padding-top: 10px; }
+  .card-day-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 300; color: #1C1917; line-height: 1.2; }
+  .card-day-date { font-size: 12px; color: #A8A29E; margin-top: 2px; }
+  .card-block { border-radius: 10px; padding: 11px 15px; border-left: 4px solid transparent; }
+  .card-block-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .card-block-pill { font-size: 11px; font-weight: 500; padding: 2px 9px; border-radius: 99px; }
+  .card-block-name { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 400; color: #1C1917; }
+  .card-block-goal { font-size: 12px; color: #57534E; font-style: italic; margin-bottom: 5px; }
+  .card-block-bullets { font-size: 12px; color: #57534E; line-height: 1.65; }
+  .card-block-tip { font-size: 11px; color: #A8A29E; font-style: italic; border-top: 1px solid rgba(28,25,23,0.1); padding-top: 6px; margin-top: 6px; line-height: 1.5; }
+  .card-empty { border-radius: 10px; padding: 11px 15px; background: rgba(28,25,23,0.03); border: 1px dashed rgba(28,25,23,0.14); }
+  .card-empty-text { font-size: 12px; color: #A8A29E; font-style: italic; }
+  .card-footer { margin-top: 22px; padding-top: 14px; border-top: 1px solid rgba(28,25,23,0.1); font-size: 11px; color: #A8A29E; text-align: right; }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 0.5px solid var(--border); }
+    .day-row { grid-template-columns: 90px 1fr; }
+    header { padding: 1.25rem; }
+    .main { padding: 1.25rem; }
+    .gen-bar { padding: 1rem 1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Weekly Dog Schedule</h1>
+    <p>Drag a day type onto each day of the week</p>
+  </div>
+  <div class="header-right">
+    <div class="date-picker-wrap" id="date-picker-wrap">
+      <span>Week starting</span>
+      <button class="date-trigger" id="date-trigger" onclick="toggleCal()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+          <rect x="1" y="2" width="12" height="11" rx="2"/>
+          <path d="M1 6h12M4 1v2M10 1v2"/>
+        </svg>
+        <span id="date-label">Pick a week</span>
+      </button>
+      <div class="cal-dropdown" id="cal-dropdown">
+        <div class="cal-nav">
+          <button class="cal-nav-btn" onclick="calShift(-1)">&#8249;</button>
+          <span class="cal-month-label" id="cal-month-label"></span>
+          <button class="cal-nav-btn" onclick="calShift(1)">&#8250;</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-hint">Tap any day to set that week</div>
+      </div>
+    </div>
+    <button class="btn-outline" onclick="clearAll()">Clear all</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-label">Day types</div>
+    <div id="template-list"></div>
+  </div>
+  <div class="main">
+    <div class="week-label">Your week</div>
+    <div id="week-grid"></div>
+  </div>
+</div>
+
+<div class="gen-bar">
+  <button class="btn-generate" onclick="openModal()">
+    &#128467; &nbsp;Generate schedule
+  </button>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Your week at a glance</h2>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="schedule-card"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-outline" onclick="closeModal()">Close</button>
+      <button class="btn-generate" onclick="saveImage()" id="save-btn">&#8595; &nbsp;Save as image</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+const BLOCKS = [
+  { id:"day0", dayLabel:"Day 0", name:"Easy Start", goal:"Low pressure, just get moving", bullets:"10–15 min short walk · Let them sniff freely · Optional: podcast/music for you", tip:"Low energy? Scatter kibble in the yard or floor + 5 mins play", color:"#D4EAB8", textColor:"#3A6B1A", tag:"gentle", border:"#9FC97A" },
+  { id:"day1", dayLabel:"Day 1", name:"Training Walk", goal:"Mental stimulation over distance", bullets:"10 min walk · 3–5 stops: sit, name recall, loose lead walking", tip:"Tires them out fast without needing a long walk", color:"#C4DCFA", textColor:"#1A4E8C", tag:"training", border:"#7EB3F0" },
+  { id:"day2", dayLabel:"Day 2", name:"Enrichment Day", goal:"Skip or reduce walk if needed", bullets:"Short walk or none · Find it game · Puzzle feeder / snuffle mat · Tug", tip:"Your endo-friendly buffer day", color:"#F5CEDE", textColor:"#8C1A3E", tag:"low spoon", border:"#E8839F" },
+  { id:"day3", dayLabel:"Day 3", name:"Adventure Lite", goal:"Add novelty without overwhelm", bullets:"Slightly different route · Let dogs choose direction · Sit & watch 2–3 min", tip:"Builds their confidence + breaks monotony for you", color:"#FDDCAA", textColor:"#7A4500", tag:"explore", border:"#F5B055" },
+  { id:"day4", dayLabel:"Day 4", name:"Low Spoon Day", goal:"Minimum viable effort", bullets:"5–10 min walk MAX or indoor play + enrichment only", tip:"Pre-approved rest — no guilt", color:"#F9C5AE", textColor:"#7A2E0E", tag:"rest", border:"#F0926A" },
+  { id:"day5", dayLabel:"Day 5", name:"Sniff Safari", goal:"Tire them out mentally", bullets:"Slow walk · Let them smell everything · No rush, no structure", tip:"Sniffing = equivalent to a much longer walk for dogs", color:"#A8E8D8", textColor:"#0A5C44", tag:"sensory", border:"#52C9A8" },
+  { id:"day6", dayLabel:"Day 6", name:"Mix It Up", goal:"Follow your energy", bullets:"Pick one: training walk · longer walk · park visit · repeat favourite", tip:"No rules today — you choose", color:"#D8CCFA", textColor:"#4A2EA0", tag:"flexible", border:"#A48EE8" },
+];
+
+let dragging = null;
+let slotData = {};
+
+// ── Calendar picker state ──────────────────────────────────────
+let selectedMonday = null;  // Date object, always a Monday
+let calViewYear, calViewMonth;
+
+(function initCal() {
+  const today = new Date();
+  calViewYear = today.getFullYear();
+  calViewMonth = today.getMonth();
+  // default to current or next Monday
+  const day = today.getDay();
+  const toMon = day === 0 ? 1 : day === 1 ? 0 : (8 - day);
+  const mon = new Date(today);
+  mon.setDate(today.getDate() + toMon);
+  setSelectedMonday(mon, false);
+})();
+
+function setSelectedMonday(date, rebuild) {
+  // Snap to Monday of whichever week was clicked
+  const d = new Date(date);
+  const dow = d.getDay(); // 0=Sun
+  const toMon = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + toMon);
+  d.setHours(0,0,0,0);
+  selectedMonday = d;
+  calViewYear = d.getFullYear();
+  calViewMonth = d.getMonth();
+  updateTriggerLabel();
+  renderCal();
+  if (rebuild !== false) buildWeek();
+}
+
+function updateTriggerLabel() {
+  const lbl = document.getElementById("date-label");
+  if (!selectedMonday) { lbl.textContent = "Pick a week"; return; }
+  const end = new Date(selectedMonday);
+  end.setDate(end.getDate() + 6);
+  lbl.textContent = formatDate(selectedMonday) + " – " + formatDate(end);
+}
+
+function toggleCal() {
+  const drop = document.getElementById("cal-dropdown");
+  const trig = document.getElementById("date-trigger");
+  const open = drop.classList.toggle("open");
+  trig.classList.toggle("open", open);
+  if (open) renderCal();
+}
+
+function closeCal() {
+  document.getElementById("cal-dropdown").classList.remove("open");
+  document.getElementById("date-trigger").classList.remove("open");
+}
+
+document.addEventListener("click", e => {
+  const wrap = document.getElementById("date-picker-wrap");
+  if (wrap && !wrap.contains(e.target)) closeCal();
+});
+
+function calShift(dir) {
+  calViewMonth += dir;
+  if (calViewMonth > 11) { calViewMonth = 0; calViewYear++; }
+  if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+  renderCal();
+}
+
+function renderCal() {
+  const label = document.getElementById("cal-month-label");
+  const grid  = document.getElementById("cal-grid");
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  label.textContent = new Date(calViewYear, calViewMonth, 1)
+    .toLocaleDateString("en-AU", { month:"long", year:"numeric" });
+
+  // Day-of-week headers Mon…Sun
+  const dows = ["Mo","Tu","We","Th","Fr","Sa","Su"];
+  let html = dows.map(d => `<div class="cal-dow">${d}</div>`).join("");
+
+  const first = new Date(calViewYear, calViewMonth, 1);
+  // first.getDay(): 0=Sun,1=Mon…6=Sat → shift so Mon=0
+  let startDow = (first.getDay() + 6) % 7;
+  // Empty cells before first of month
+  for (let i = 0; i < startDow; i++) html += `<div class="cal-cell cal-empty"></div>`;
+
+  const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(calViewYear, calViewMonth, day);
+    d.setHours(0,0,0,0);
+    const dow = (d.getDay() + 6) % 7; // 0=Mon…6=Sun
+
+    let cls = "cal-cell";
+    if (d.getTime() === today.getTime()) cls += " cal-today";
+
+    if (selectedMonday) {
+      const weekEnd = new Date(selectedMonday);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekEnd.setHours(0,0,0,0);
+      if (d.getTime() === selectedMonday.getTime()) cls += " cal-selected cal-week-start";
+      else if (d.getTime() === weekEnd.getTime()) cls += " cal-in-week cal-week-end";
+      else if (d > selectedMonday && d < weekEnd) cls += " cal-in-week";
+    }
+
+    html += `<div class="${cls}" onclick="setSelectedMonday(new Date(${calViewYear},${calViewMonth},${day})); closeCal();">${day}</div>`;
+  }
+
+  grid.innerHTML = html;
+}
+
+function getWeekDates() {
+  if (!selectedMonday) return Array(7).fill(null);
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(selectedMonday);
+    d.setDate(selectedMonday.getDate() + i);
+    return d;
+  });
+}
+
+function formatDate(d) {
+  if (!d) return "";
+  return d.toLocaleDateString("en-AU", { day:"numeric", month:"short" });
+}
+
+function buildSidebar() {
+  const list = document.getElementById("template-list");
+  list.innerHTML = "";
+  BLOCKS.forEach(b => {
+    const div = document.createElement("div");
+    div.className = "template-block";
+    div.draggable = true;
+    div.dataset.id = b.id;
+    div.innerHTML = `
+      <div class="block-top">
+        <span class="block-pill" style="background:${b.color};color:${b.textColor};border:0.5px solid ${b.border}">${b.dayLabel}</span>
+        <span class="block-name">${b.name}</span>
+      </div>
+      <div class="block-goal">${b.goal}</div>
+      <div class="block-bullets">${b.bullets}</div>
+      <div class="block-tip">&#128073; ${b.tip}</div>
+    `;
+    div.addEventListener("dragstart", e => { dragging = b.id; e.dataTransfer.effectAllowed = "copy"; });
+    list.appendChild(div);
+  });
+}
+
+function buildWeek() {
+  const grid = document.getElementById("week-grid");
+  grid.innerHTML = "";
+  const dates = getWeekDates();
+  DAYS.forEach((day, i) => {
+    const row = document.createElement("div");
+    row.className = "day-row";
+
+    const label = document.createElement("div");
+    label.className = "day-name";
+    label.innerHTML = day + (dates[i] ? `<br><span class="day-date">${formatDate(dates[i])}</span>` : "");
+
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    slot.dataset.slot = i;
+
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = "drop a day type here";
+    slot.appendChild(hint);
+
+    if (slotData[i]) renderFilled(slot, i, slotData[i]);
+
+    slot.addEventListener("dragover", e => { e.preventDefault(); slot.classList.add("drag-over"); });
+    slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+    slot.addEventListener("drop", e => {
+      e.preventDefault();
+      slot.classList.remove("drag-over");
+      if (!dragging) return;
+      slotData[i] = dragging;
+      renderFilled(slot, i, dragging);
+      dragging = null;
+    });
+
+    row.appendChild(label);
+    row.appendChild(slot);
+    grid.appendChild(row);
+  });
+}
+
+function renderFilled(slot, idx, blockId) {
+  const b = BLOCKS.find(x => x.id === blockId);
+  if (!b) return;
+  slot.innerHTML = "";
+  slot.classList.add("filled");
+
+  const inner = document.createElement("div");
+  inner.className = "placed";
+  inner.style.background = b.color + "55";
+  inner.style.borderLeft = `3px solid ${b.border}`;
+
+  inner.innerHTML = `
+    <div class="placed-left">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+        <span class="placed-pill" style="background:${b.color};color:${b.textColor};border:0.5px solid ${b.border}">${b.dayLabel}</span>
+        <div class="placed-name">${b.name}</div>
+      </div>
+      <div class="placed-goal">${b.goal}</div>
+      <div class="placed-bullets">${b.bullets}</div>
+      <div class="placed-tip">&#128073; ${b.tip}</div>
+    </div>
+    <button class="remove-btn" title="Remove">&#215;</button>
+  `;
+  inner.querySelector(".remove-btn").addEventListener("click", () => {
+    delete slotData[idx];
+    slot.innerHTML = "";
+    slot.classList.remove("filled");
+    const hint = document.createElement("div");
+    hint.className = "empty-hint";
+    hint.textContent = "drop a day type here";
+    slot.appendChild(hint);
+  });
+
+  slot.appendChild(inner);
+}
+
+function clearAll() {
+  slotData = {};
+  buildWeek();
+}
+
+function buildScheduleCard() {
+  const dates = getWeekDates();
+  let subtitle = "Weekly plan";
+  if (selectedMonday) {
+    const end = new Date(selectedMonday);
+    end.setDate(end.getDate() + 6);
+    subtitle = formatDate(selectedMonday) + " \u2013 " + formatDate(end);
+  }
+
+  let html = `
+    <div class="card-header">
+      <div class="card-title">Weekly Dog Schedule</div>
+      <div class="card-subtitle">${subtitle}</div>
+    </div>
+    <div class="card-grid">
+  `;
+
+  DAYS.forEach((day, i) => {
+    const b = slotData[i] ? BLOCKS.find(x => x.id === slotData[i]) : null;
+    const dateStr = dates[i] ? formatDate(dates[i]) : "";
+
+    html += `<div class="card-day">
+      <div class="card-day-label">
+        <div class="card-day-name">${day}</div>
+        ${dateStr ? `<div class="card-day-date">${dateStr}</div>` : ""}
+      </div>`;
+
+    if (b) {
+      html += `
+      <div class="card-block" style="background:${b.color}40;border-left-color:${b.border}">
+        <div class="card-block-top">
+          <span class="card-block-pill" style="background:${b.color};color:${b.textColor};border:0.5px solid ${b.border}">${b.dayLabel}</span>
+          <span class="card-block-name">${b.name}</span>
+        </div>
+        <div class="card-block-goal">${b.goal}</div>
+        <div class="card-block-bullets">${b.bullets}</div>
+        <div class="card-block-tip">&#128073; ${b.tip}</div>
+      </div>`;
+    } else {
+      html += `<div class="card-empty"><span class="card-empty-text">No activity planned</span></div>`;
+    }
+
+    html += `</div>`;
+  });
+
+  html += `</div>`;
+
+  const now = new Date();
+  html += `<div class="card-footer">Created ${now.toLocaleDateString("en-AU", {day:"numeric",month:"long",year:"numeric"})}</div>`;
+
+  document.getElementById("schedule-card").innerHTML = html;
+}
+
+function openModal() {
+  buildScheduleCard();
+  document.getElementById("modal").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.remove("open");
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById("modal")) closeModal();
+}
+
+function saveImage() {
+  const btn = document.getElementById("save-btn");
+  btn.textContent = "Saving...";
+  btn.style.opacity = "0.6";
+  try {
+    const canvas = drawScheduleCanvas();
+    const isoDate = selectedMonday ? selectedMonday.toISOString().slice(0,10) : "";
+    const filename = isoDate ? "dog-schedule-" + isoDate + ".png" : "dog-schedule.png";
+    canvas.toBlob(function(blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1000);
+      btn.innerHTML = "&#8595; &nbsp;Save as image";
+      btn.style.opacity = "1";
+    }, "image/png");
+  } catch(err) {
+    console.error(err);
+    btn.innerHTML = "&#8595; &nbsp;Save as image";
+    btn.style.opacity = "1";
+    alert("Could not save image: " + err.message);
+  }
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  var words = text.split(" ");
+  var line = "";
+  var cy = y;
+  for (var i = 0; i < words.length; i++) {
+    var test = line + (line ? " " : "") + words[i];
+    if (ctx.measureText(test).width > maxW && line) {
+      ctx.fillText(line, x, cy + 13);
+      cy += lineH;
+      line = words[i];
+    } else { line = test; }
+  }
+  if (line) { ctx.fillText(line, x, cy + 13); cy += lineH; }
+  return cy;
+}
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 0.5; ctx.stroke(); }
+}
+
+function drawScheduleCanvas() {
+  var SCALE = 2;
+  var W = 800;
+  var PAD = 40;
+  var COL_DAY = 115;
+  var GAP = 8;
+  var ROW_PAD = 14;
+  var LINE_H = 17;
+  var CREAM = "#FAF7F2";
+  var INK = "#1C1917";
+  var INK_L = "#57534E";
+  var INK_F = "#A8A29E";
+  var BW = W - PAD * 2 - COL_DAY - 12;
+
+  function charsPerLine(fs) { return Math.floor((BW - 24) / (fs * 0.56)); }
+  function lineCount(text, fs) { return Math.max(1, Math.ceil(text.length / charsPerLine(fs))); }
+
+  function rowHeight(i) {
+    var b = slotData[i] ? BLOCKS.find(function(x){ return x.id === slotData[i]; }) : null;
+    if (!b) return 60;
+    var h = ROW_PAD + 20 + 8 + LINE_H + 4
+          + lineCount(b.goal, 12) * LINE_H + 4
+          + lineCount(b.bullets, 12) * LINE_H + 10
+          + lineCount(b.tip, 11) * 15 + ROW_PAD;
+    return Math.max(100, h);
+  }
+
+  var dates = getWeekDates();
+  var rowHeights = DAYS.map(function(_, i){ return rowHeight(i); });
+  var HEADER_H = 88;
+  var FOOTER_H = 44;
+  var totalH = HEADER_H + rowHeights.reduce(function(a,b){return a+b;},0) + GAP * 6 + PAD + FOOTER_H;
+
+  var canvas = document.createElement("canvas");
+  canvas.width  = W * SCALE;
+  canvas.height = totalH * SCALE;
+  var ctx = canvas.getContext("2d");
+  ctx.scale(SCALE, SCALE);
+
+  ctx.fillStyle = CREAM;
+  ctx.fillRect(0, 0, W, totalH);
+
+  // Header
+  var y = PAD;
+  ctx.fillStyle = INK;
+  ctx.font = "300 26px Georgia, serif";
+  ctx.fillText("Weekly Dog Schedule", PAD, y + 26);
+  y += 36;
+  ctx.fillStyle = INK_F;
+  ctx.font = "14px system-ui, sans-serif";
+  var subtitle = "Weekly plan";
+  if (selectedMonday) {
+    var end = new Date(selectedMonday);
+    end.setDate(end.getDate() + 6);
+    subtitle = formatDate(selectedMonday) + " \u2013 " + formatDate(end);
+  }
+  ctx.fillText(subtitle, PAD, y);
+  y += 18;
+  ctx.strokeStyle = "rgba(28,25,23,0.12)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  y += 16;
+
+  // Rows
+  DAYS.forEach(function(day, i) {
+    var rh = rowHeights[i];
+    var b = slotData[i] ? BLOCKS.find(function(x){ return x.id === slotData[i]; }) : null;
+    var rowY = y;
+    var dateStr = dates[i] ? formatDate(dates[i]) : "";
+
+    // Day label
+    ctx.textAlign = "right";
+    ctx.fillStyle = INK;
+    ctx.font = "300 15px Georgia, serif";
+    ctx.fillText(day, PAD + COL_DAY - 10, rowY + ROW_PAD + 15);
+    if (dateStr) {
+      ctx.fillStyle = INK_F;
+      ctx.font = "12px system-ui, sans-serif";
+      ctx.fillText(dateStr, PAD + COL_DAY - 10, rowY + ROW_PAD + 31);
+    }
+    ctx.textAlign = "left";
+
+    var bx = PAD + COL_DAY;
+
+    if (b) {
+      // Block bg
+      roundRect(ctx, bx, rowY, BW, rh, 10, b.color + "44", null);
+      // Left bar
+      ctx.fillStyle = b.border;
+      ctx.fillRect(bx, rowY, 4, rh);
+      roundRect(ctx, bx, rowY, 4, rh, 0, b.border, null);
+
+      var tx = bx + 16;
+      var ty = rowY + ROW_PAD;
+
+      // Pill
+      ctx.font = "500 11px system-ui, sans-serif";
+      var pw = ctx.measureText(b.dayLabel).width + 16;
+      roundRect(ctx, tx, ty, pw, 18, 9, b.color, b.border);
+      ctx.fillStyle = b.textColor;
+      ctx.textAlign = "center";
+      ctx.fillText(b.dayLabel, tx + pw / 2, ty + 13);
+      ctx.textAlign = "left";
+      ty += 24;
+
+      // Name
+      ctx.fillStyle = INK;
+      ctx.font = "400 15px Georgia, serif";
+      ctx.fillText(b.name, tx, ty + 13);
+      ty += LINE_H + 4;
+
+      // Goal
+      ctx.fillStyle = INK_L;
+      ctx.font = "italic 12px system-ui, sans-serif";
+      ty = wrapText(ctx, b.goal, tx, ty, BW - 24, LINE_H) + 2;
+
+      // Bullets
+      ctx.fillStyle = INK_L;
+      ctx.font = "12px system-ui, sans-serif";
+      ty = wrapText(ctx, b.bullets, tx, ty, BW - 24, LINE_H) + 6;
+
+      // Divider
+      ctx.strokeStyle = "rgba(28,25,23,0.1)";
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(bx + BW - 12, ty); ctx.stroke();
+      ty += 6;
+
+      // Tip
+      ctx.fillStyle = INK_F;
+      ctx.font = "italic 11px system-ui, sans-serif";
+      wrapText(ctx, ">> " + b.tip, tx, ty, BW - 24, 15);
+
+    } else {
+      // Empty
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = "rgba(28,25,23,0.2)";
+      ctx.lineWidth = 1;
+      roundRect(ctx, bx, rowY, BW, rh, 10, "rgba(28,25,23,0.02)", null);
+      ctx.beginPath();
+      ctx.moveTo(bx + 10, rowY); ctx.lineTo(bx + BW - 10, rowY);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = INK_F;
+      ctx.font = "italic 12px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("No activity planned", bx + BW / 2, rowY + rh / 2 + 5);
+      ctx.textAlign = "left";
+    }
+
+    y += rh + GAP;
+  });
+
+  // Footer
+  y += 4;
+  ctx.strokeStyle = "rgba(28,25,23,0.12)";
+  ctx.lineWidth = 0.5;
+  ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke();
+  y += 14;
+  var now = new Date();
+  ctx.fillStyle = INK_F;
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("Created " + now.toLocaleDateString("en-AU", {day:"numeric",month:"long",year:"numeric"}), W - PAD, y);
+  ctx.textAlign = "left";
+
+  return canvas;
+}
+
+buildSidebar();
+buildWeek();
+</script>
+</body>
+</html>
